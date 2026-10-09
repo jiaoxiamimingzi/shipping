@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>海运状态查询</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+    background: linear-gradient(135deg, #eef2f7 0%, #dfe7f1 100%);
+    min-height: 100vh; display: flex; justify-content: center; padding: 40px 16px;
+  }
+  .card {
+    background: #fff; border-radius: 16px; width: 100%; max-width: 760px;
+    padding: 34px; box-shadow: 0 10px 40px rgba(30, 50, 90, .12); height: fit-content;
+  }
+  h1 { font-size: 21px; color: #16233a; margin-bottom: 6px; }
+  .sub { font-size: 13px; color: #8290a6; margin-bottom: 24px; }
+  label { display: block; font-size: 12px; color: #64748b; margin-bottom: 6px; font-weight: 600; }
+  select, textarea {
+    width: 100%; padding: 12px 14px; border: 1.5px solid #dbe2ec; border-radius: 9px;
+    font-size: 15px; outline: none; background: #fff; font-family: inherit; color: #16233a;
+    transition: border-color .15s, box-shadow .15s; resize: vertical;
+  }
+  textarea { min-height: 110px; line-height: 1.5;
+             font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 14px; }
+  select:focus, textarea:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+  .field { margin-bottom: 16px; }
+  .hint { font-size: 12px; color: #9aa7b8; margin-top: 5px; }
+  .actions { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+  button.primary {
+    padding: 13px 26px; background: #2563eb; color: #fff; border: none;
+    border-radius: 9px; font-size: 15px; font-weight: 600; cursor: pointer;
+    font-family: inherit; transition: background .15s;
+  }
+  button.primary:hover:not(:disabled) { background: #1d4ed8; }
+  button.primary:disabled { background: #a9c2f0; cursor: not-allowed; }
+  .count-hint { font-size: 13px; color: #64748b; }
+  .history-wrap { margin-top: 22px; border-top: 1px solid #eef2f7; padding-top: 18px; }
+  .history-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .history-head span { font-size: 12px; color: #94a3b8; font-weight: 700; letter-spacing: .5px; }
+  .clear-all { background: none; border: none; color: #94a3b8; font-size: 12px;
+    cursor: pointer; font-family: inherit; padding: 2px 6px; border-radius: 6px; }
+  .clear-all:hover { color: #dc2626; background: #fef2f2; }
+  .history { display: flex; flex-wrap: wrap; gap: 8px; }
+  .history .empty { font-size: 13px; color: #b0bac9; }
+  .chip { display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 6px 5px 12px; background: #eef2f9; border-radius: 20px;
+    font-size: 13px; font-family: ui-monospace, Menlo, monospace; color: #334155; }
+  .chip-text { cursor: pointer; }
+  .chip-text:hover { color: #2563eb; }
+  .chip-x { cursor: pointer; color: #94a3b8; font-size: 16px; line-height: 1;
+    padding: 0 4px; border-radius: 50%; user-select: none; }
+  .chip-x:hover { color: #dc2626; background: #fee2e2; }
+  .loading { text-align: center; padding: 24px; color: #64748b; font-size: 14px; display: none; }
+  .spinner { width: 22px; height: 22px; border: 2.5px solid #dbe2ec; border-top-color: #2563eb;
+    border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 10px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .results { margin-top: 26px; display: none; }
+  .results.show { display: block; }
+  .results-head { font-size: 13px; color: #64748b; margin-bottom: 14px; }
+  .result-card { border: 1px solid #e5eaf2; border-radius: 12px; padding: 20px;
+    margin-bottom: 16px; background: #fff; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .result-card.error { border-color: #fecaca; background: #fef7f7; }
+  .card-head { display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px; gap: 10px; flex-wrap: wrap; }
+  .container-no { font-family: ui-monospace, Menlo, monospace; font-size: 16px;
+    font-weight: 700; color: #16233a; letter-spacing: .4px; }
+  .badge { padding: 4px 12px; border-radius: 20px; font-size: 12px;
+    font-weight: 600; background: #dbeafe; color: #1d4ed8; white-space: nowrap; }
+  .badge.error { background: #fee2e2; color: #dc2626; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+  .item label { font-size: 11px; color: #94a3b8; margin-bottom: 3px; letter-spacing: .3px; }
+  .item span { font-size: 14px; color: #16233a; font-weight: 600; word-break: break-all; }
+  .item span.mono { font-family: ui-monospace, Menlo, monospace; font-weight: 500; }
+  .map-link { display: inline-block; margin-top: 14px; font-size: 13px; color: #2563eb;
+    text-decoration: none; font-weight: 600; }
+  .map-link:hover { text-decoration: underline; }
+  .timeline { margin-top: 18px; border-top: 1px solid #f1f4f9; padding-top: 14px; }
+  .timeline h3 { font-size: 11px; color: #94a3b8; margin-bottom: 10px; letter-spacing: .6px; font-weight: 700; }
+  .event { display: flex; gap: 10px; padding: 7px 0; font-size: 13.5px; align-items: flex-start; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .dot.done { background: #10b981; }
+  .dot.current { background: #2563eb; box-shadow: 0 0 0 4px rgba(37,99,235,.15); }
+  .event .desc { color: #334155; font-weight: 500; }
+  .event .loc { color: #94a3b8; font-size: 12px; margin-left: 6px; font-weight: 400; }
+  .event .time { color: #a3aec0; font-size: 12px; margin-left: auto; white-space: nowrap; padding-left: 10px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🚢 海运状态查询</h1>
+  <p class="sub">批量输入柜号或提单号，查询船舶位置、航程进度、装运日期与预计到港时间</p>
+
+  <div class="field">
+    <label>船公司</label>
+    <select id="carrier">
+      <option value="AUTO">自动识别（按箱号前缀）</option>
+      <option value="MSC">MSC · 地中海航运</option>
+      <option value="MAERSK">Maersk · 马士基</option>
+      <option value="CMA_CGM">CMA CGM · 达飞</option>
+      <option value="HAPAG_LLOYD">Hapag-Lloyd · 赫伯罗特</option>
+      <option value="EVERGREEN">Evergreen · 长荣</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>柜号 / 提单号</label>
+    <textarea id="queries" placeholder="每行一个，也支持逗号或空格分隔&#10;例如：&#10;MSCU7349821&#10;MSKU1234567&#10;CMAU5678901"></textarea>
+    <p class="hint">支持换行、逗号、空格分隔，单次最多 20 个</p>
+  </div>
+
+  <div class="actions">
+    <button id="btn" class="primary" onclick="doSearch()">查询</button>
+    <span id="countHint" class="count-hint"></span>
+  </div>
+
+  <div class="history-wrap">
+    <div class="history-head">
+      <span>历史记录</span>
+      <button class="clear-all" onclick="clearAllHistory()">清空全部</button>
+    </div>
+    <div id="history" class="history"></div>
+  </div>
+
+  <div id="loading" class="loading"><div class="spinner"></div><span id="loadingText">正在查询…</span></div>
+  <div id="results" class="results"></div>
+</div>
+
+<script>
+const HISTORY_KEY = "shipping_history_v1";
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+function parseQueries(text) {
+  const arr = text.split(/[\n,;\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+  return [...new Set(arr)];
+}
+function updateCount() {
+  const n = parseQueries(document.getElementById("queries").value).length;
+  document.getElementById("countHint").textContent = n ? `已识别 ${n} 个` : "";
+}
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { return []; }
+}
+function saveHistory(list) { localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 60))); }
+function addToHistory(items) {
+  let list = loadHistory();
+  for (const it of items) {
+    list = list.filter(x => !(x.query === it.query && x.carrier === it.carrier));
+    list.unshift(it);
+  }
+  saveHistory(list); renderHistory();
+}
+function removeFromHistory(query, carrier) {
+  const list = loadHistory().filter(x => !(x.query === query && x.carrier === carrier));
+  saveHistory(list); renderHistory();
+}
+function clearAllHistory() {
+  if (!confirm("确定清空全部历史记录？")) return;
+  localStorage.removeItem(HISTORY_KEY); renderHistory();
+}
+function renderHistory() {
+  const list = loadHistory();
+  const el = document.getElementById("history");
+  if (!list.length) { el.innerHTML = '<span class="empty">暂无历史记录</span>'; return; }
+  el.innerHTML = list.map((it, i) => `
+    <span class="chip" data-i="${i}" title="${escapeHtml(it.carrier || '')}">
+      <span class="chip-text" data-action="use">${escapeHtml(it.query)}</span>
+      <span class="chip-x" data-action="del">×</span>
+    </span>`).join("");
+}
+document.getElementById("history").addEventListener("click", e => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  const it = loadHistory()[+chip.dataset.i];
+  if (!it) return;
+  if (e.target.dataset.action === "del") {
+    removeFromHistory(it.query, it.carrier);
+  } else if (e.target.dataset.action === "use") {
+    const ta = document.getElementById("queries");
+    const existing = parseQueries(ta.value);
+    if (!existing.includes(it.query)) {
+      ta.value = (ta.value.trim() ? ta.value.trim() + "\n" : "") + it.query;
+    }
+    ta.focus(); updateCount();
+  }
+});
+async function doSearch() {
+  const carrier = document.getElementById("carrier").value;
+  const queries = parseQueries(document.getElementById("queries").value);
+  if (!queries.length) { document.getElementById("queries").focus(); return; }
+  if (queries.length > 20) { alert("单次最多查询 20 个"); return; }
+  const btn = document.getElementById("btn");
+  const loading = document.getElementById("loading");
+  const loadingText = document.getElementById("loadingText");
+  const results = document.getElementById("results");
+  btn.disabled = true;
+  loadingText.textContent = `正在查询 ${queries.length} 个柜号…`;
+  loading.style.display = "block";
+  results.classList.remove("show");
+  try {
+    const resp = await fetch("/api/track/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ carrier, queries })
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      results.innerHTML = `<div class="result-card error"><div class="badge error">${escapeHtml(data.error || "查询失败")}</div></div>`;
+    } else {
+      results.innerHTML = renderResults(data.results || []);
+      addToHistory(queries.map(q => ({
+        query: q, carrier: carrier === "AUTO" ? "AUTO" : carrier, time: Date.now()
+      })));
+    }
+    results.classList.add("show");
+  } catch (e) {
+    results.innerHTML = `<div class="result-card error"><div class="badge error">网络错误：${escapeHtml(e.message)}</div></div>`;
+    results.classList.add("show");
+  } finally {
+    btn.disabled = false; loading.style.display = "none";
+  }
+}
+function renderResults(list) {
+  const ok = list.filter(r => r.success).length;
+  const head = `<div class="results-head">共 ${list.length} 个，成功 ${ok} 个，失败 ${list.length - ok} 个</div>`;
+  return head + list.map(renderCard).join("");
+}
+function renderCard(r) {
+  if (!r.success) {
+    return `<div class="result-card error">
+      <div class="card-head">
+        <span class="container-no">${escapeHtml(r.query)}</span>
+        <span class="badge error">查询失败</span>
+      </div>
+      <div style="font-size:13px;color:#b91c1c;">${escapeHtml(r.error || "未知错误")}</div>
+    </div>`;
+  }
+  const pos = r.position || {};
+  const eta = r.eta ? new Date(r.eta).toLocaleString("zh-CN", { hour12: false }) : "暂无";
+  const conf = r.eta_confidence ? `（置信度 ${Math.round(r.eta_confidence * 100)}%）` : "";
+  const shipped = r.shipped_date
+    ? new Date(r.shipped_date).toLocaleString("zh-CN", { hour12: false }) : "—";
+  const status = r.current_milestone?.description || "追踪中";
+  let mapLink = "";
+  if (pos.latitude && pos.longitude) {
+    mapLink = `<a class="map-link" target="_blank"
+      href="https://www.openstreetmap.org/?mlat=${pos.latitude}&mlon=${pos.longitude}#map=6/${pos.latitude}/${pos.longitude}">
+      📍 在地图中查看当前位置 →</a>`;
+  }
+  let timeline = "";
+  if (r.events && r.events.length) {
+    timeline = `<div class="timeline"><h3>航程进度</h3>`;
+    r.events.forEach((ev, i) => {
+      const isLast = i === r.events.length - 1;
+      const time = ev.timestamp ? new Date(ev.timestamp).toLocaleString("zh-CN", { hour12: false }) : "";
+      timeline += `<div class="event">
+          <div class="dot ${isLast ? "current" : "done"}"></div>
+          <div><span class="desc">${escapeHtml(ev.description || "事件")}</span>
+               <span class="loc">${escapeHtml(ev.location || "")}</span></div>
+          <div class="time">${time}</div>
+        </div>`;
+    });
+    timeline += `</div>`;
+  }
+  return `<div class="result-card">
+      <div class="card-head">
+        <span class="container-no">${escapeHtml(r.query)}</span>
+        <span class="badge">${escapeHtml(status)}</span>
+      </div>
+      <div class="grid">
+        <div class="item"><label>船公司</label><span>${escapeHtml(r.carrier || "—")}</span></div>
+        <div class="item"><label>船舶</label><span>${escapeHtml(r.vessel_name || "—")}</span></div>
+        <div class="item"><label>装运日期</label><span>${shipped}</span></div>
+        <div class="item"><label>预计到港</label><span>${eta} ${conf}</span></div>
+        <div class="item"><label>纬度</label><span class="mono">${pos.latitude ?? "—"}</span></div>
+        <div class="item"><label>经度</label><span class="mono">${pos.longitude ?? "—"}</span></div>
+        <div class="item"><label>航速</label><span>${pos.speed_knots ? pos.speed_knots + " 节" : "—"}</span></div>
+        <div class="item"><label>航向</label><span>${pos.heading != null ? pos.heading + "°" : "—"}</span></div>
+      </div>
+      ${mapLink}
+      ${timeline}
+    </div>`;
+}
+document.getElementById("queries").addEventListener("input", updateCount);
+document.getElementById("queries").addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) doSearch();
+});
+renderHistory();
+updateCount();
+</script>
+</body>
+</html>
